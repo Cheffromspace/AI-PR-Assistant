@@ -1,0 +1,324 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "model": "=claude-3-7-sonnet-20250219",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        -420
+      ],
+      "id": "2b0186b5-d1e0-4a62-84c4-ec8e5e18e67f",
+      "name": "Anthropic Chat Model",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to request a change to the code. Add a comment using the Body parameter.",
+        "resource": "review",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.name }}",
+          "mode": "name"
+        },
+        "pullRequestNumber": "={{ $('Webhook').item.json.body.number }}",
+        "event": "requestChanges",
+        "body": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Body', `Comment body`, 'string') }}",
+        "additionalFields": {
+          "commitId": "={{ $('Webhook').item.json.body.head.sha }}"
+        }
+      },
+      "type": "n8n-nodes-base.githubTool",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -420
+      ],
+      "id": "a63fdd18-1f7c-4ff0-abf9-6f6769045f17",
+      "name": "request_change",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Approve PR",
+        "resource": "review",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.name }}",
+          "mode": "name"
+        },
+        "pullRequestNumber": "={{ $('Webhook').item.json.body.number }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.githubTool",
+      "typeVersion": 1,
+      "position": [
+        280,
+        -420
+      ],
+      "id": "35828ab3-72b2-4fe5-a008-3956eec71bf1",
+      "name": "approve",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pull-requests",
+        "authentication": "basicAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        -860
+      ],
+      "id": "dcf3890f-b596-49cd-a19b-4b24ba3fbd3d",
+      "name": "Webhook",
+      "webhookId": "8213ecd2-f1f8-4200-8488-22baa1e17a41",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "=You are Claude, an AI assistant acting as a professional code reviewer. Your goal is to provide helpful, constructive feedback on code changes in GitHub pull requests.\n\n## Approach to Reviews\n- Be thorough but balanced - focus on meaningful issues rather than minor stylistic preferences\n- Provide specific, actionable feedback with clear explanations\n- Balance pointing out problems with positive reinforcement\n- When suggesting changes, explain why they improve the code\n- Consider security, performance, maintainability, and readability\n\n## Review Focus Areas\n1. Potential security vulnerabilities (injection attacks, authentication issues, etc.)\n2. Logic bugs or edge cases\n3. Performance issues (inefficient algorithms, unnecessary computations)\n4. Code organization and maintainability\n5. Error handling and edge cases\n6. Test coverage and effectiveness\n7. Documentation quality\n\n## Response Format\n- Begin with a brief summary of the PR and your overall assessment\n- Group feedback by file, with clear headings\n- Include specific line references when applicable\n- For each issue identified:\n  * Clearly describe the problem\n  * Explain why it's an issue\n  * Suggest a concrete improvement\n- End with a conclusion summarizing key points and next steps\n\nMaintain a professional, constructive tone throughout your review. Your goal is to help improve the code quality while respecting the developer's work."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        320,
+        -860
+      ],
+      "id": "86f01c5a-8ea8-4ca4-bede-b177abdc2300",
+      "name": "Code Review Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code to generate GitHub PR review prompt\nfunction generatePRReviewPrompt(items) {\n  // Process each item\n  return items.map(item => {\n    const json = item.json;\n    \n    // Basic PR details section\n    let prompt = `# GitHub PR Code Review\n\n## PR Details\n- Title: ${json.body.title || 'N/A'}\n- Description: ${json.body.body || 'N/A'}\n- Created by: ${json.body.user?.login || 'N/A'}\n- Branch: ${json.body.head?.ref || 'N/A'} → ${json.body.base?.ref || 'N/A'}\n- PR Number: #${json.body.number || 'N/A'}\n- Created: ${json.body.created_at || 'N/A'}\n- Last Updated: ${json.body.updated_at || 'N/A'}\n\n## Review Task\nPlease review the following code changes for style, potential vulnerabilities, and best practices. Focus on substantive issues rather than minor stylistic preferences.\n`;\n\n    // Conditionally add PR Comments section\n    if (json.body.comments && json.body.comments.length > 0) {\n      prompt += `\\n## PR Comments\\n`;\n      \n      for (const comment of json.body.comments) {\n        prompt += `- From @${comment.user || 'Anonymous'} (${comment.created_at || 'N/A'}):\\n  ${comment.body || 'No content'}\\n`;\n      }\n    }\n\n    // Conditionally add Review Comments section\n    if (json.body.review_comments && json.body.review_comments.length > 0) {\n      prompt += `\\n## Review Comments\\n`;\n      \n      for (const comment of json.body.review_comments) {\n        prompt += `- From @${comment.user || 'Anonymous'} (${comment.created_at || 'N/A'}) on \\`${comment.path || 'unknown file'}\\`:\\n  ${comment.body || 'No content'}\\n`;\n      }\n    }\n\n    // Add Changed Files section\n    prompt += `\\n## Changed Files\\n`;\n    \n    if (json.body.changed_files && Array.isArray(json.body.changed_files)) {\n      for (const file of json.body.changed_files) {\n        prompt += `### ${file.filename || 'Unknown file'} (${file.status || 'modified'}, +${file.additions || 0}/-${file.deletions || 0})\\n\\`\\`\\`\\n${file.patch || 'No patch available'}\\n\\`\\`\\`\\n\\n`;\n      }\n    } else {\n      prompt += `No file information available.\\n`;\n    }\n\n    // Add Review Guidelines\n    prompt += `## Review Guidelines\n1. Identify potential security vulnerabilities or bugs\n2. Suggest improvements for code quality and maintainability\n3. Check for adherence to project style guidelines\n4. Look for performance issues in algorithms or data structures\n5. Verify appropriate error handling\n6. Ensure code is well-tested where applicable\n\nPlease format your response with constructive feedback that helps the developer improve their code. Include specific line references where applicable.`;\n\n    // Return the formatted item with the prompt\n    return {\n      json: {\n        ...item.json,\n        prompt\n      }\n    };\n  });\n}\n\n// Return the processed items\nreturn generatePRReviewPrompt($input.all());"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -860
+      ],
+      "id": "29ba9ca3-d951-4ea8-8646-22aae6306347",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get full contents of a file.",
+        "url": "=https://api.github.com/repos/{{ $('Webhook').item.json.body.repository.owner }}/{{ $('Webhook').item.json.body.repository.name }}/contents/{path}?ref={{ $('Webhook').item.json.body.head.sha }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Accept",
+              "valueProvider": "fieldValue",
+              "value": "application/vnd.github.v3.raw"
+            },
+            {
+              "name": "User-Agent",
+              "valueProvider": "fieldValue",
+              "value": "n8n"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "path",
+              "description": "Full path to file",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        -420
+      ],
+      "id": "24287962-9bba-4c89-a648-8addaf7b5342",
+      "name": "get_file",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get the data of a single issue",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.name }}",
+          "mode": "name"
+        },
+        "issueNumber": "={{ $fromAI('Issue_Number', `Issue number`, 'number') }}"
+      },
+      "type": "n8n-nodes-base.githubTool",
+      "typeVersion": 1,
+      "position": [
+        520,
+        -420
+      ],
+      "id": "ebe4cbc1-64a1-471a-90ac-6fbc1e7483f4",
+      "name": "get_issue",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Leave a comment on the PR.",
+        "resource": "review",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.repository.name }}",
+          "mode": "name"
+        },
+        "pullRequestNumber": "={{ $('Webhook').item.json.body.number }}",
+        "event": "comment",
+        "body": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Body', `Comment Body`, 'string') }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.githubTool",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -420
+      ],
+      "id": "8d819446-a3a2-4b54-b50f-0bc3c85e2c09",
+      "name": "add_comment",
+      "credentials": {}
+    }
+  ],
+  "connections": {
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_change": {
+      "ai_tool": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "approve": {
+      "ai_tool": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Review Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_file": {
+      "ai_tool": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_issue": {
+      "ai_tool": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "add_comment": {
+      "ai_tool": [
+        [
+          {
+            "node": "Code Review Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "your-instance-id"
+  }
+}
