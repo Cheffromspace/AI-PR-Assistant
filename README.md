@@ -10,6 +10,9 @@ This workflow:
 3. Sends this data to a configured webhook
 4. Works with any programming language or tech stack
 
+![image](https://github.com/user-attachments/assets/4c06fd4c-14f5-4a94-923b-ec7717ef9780)
+
+
 ## Setup Instructions
 
 ### 1. Add the Workflow File
