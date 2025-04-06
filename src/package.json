@@ -1,0 +1,28 @@
+{
+  "name": "ai-pr-assistant",
+  "version": "1.0.0",
+  "description": "GitHub PR review assistant using Anthropic Claude and MCP",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "github",
+    "pr",
+    "review",
+    "anthropic",
+    "claude",
+    "mcp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic/mcp-server": "^0.1.0",
+    "@anthropic/sdk": "^0.14.2",
+    "@octokit/rest": "^19.0.13"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

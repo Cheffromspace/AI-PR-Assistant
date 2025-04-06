@@ -1,14 +1,14 @@
 # PR Review Webhook
 
-A GitHub Actions workflow that sends pull request data to a webhook for automated review and analysis.
+A GitHub Actions workflow that uses Claude AI for automated pull request reviews.
 
 ## What This Does
 
 This workflow:
 1. Runs your standard CI pipeline (tests, linting, etc.)
 2. Collects detailed information about the pull request
-3. Sends this data to a configured webhook
-4. Works with any programming language or tech stack
+3. Uses Anthropic's Claude via MCP to perform an automated review
+4. Posts review comments back to GitHub
 
 ## Setup Instructions
 
@@ -17,143 +17,74 @@ This workflow:
 Copy the example workflow file to your repository:
 
 ```
-.github/workflows/ci-pipeline.yml
+.github/workflows/ci-pipeline-mcp.yml
 ```
 
-### 2. Configure Secrets and Variables
+### 2. Configure Secrets
 
 You'll need to add the following to your repository:
 
 #### Repository Secrets
-- `WEBHOOK_USERNAME`: The username for webhook authentication
-- `WEBHOOK_AUTH_TOKEN`: The authentication token for your webhook
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for accessing Claude
 
-#### Repository Variables
-- `WEBHOOK_URL`: The URL endpoint where PR data will be sent
+### 3. Install Dependencies
 
-To add these, go to:
-1. Your repository → Settings → Secrets and variables → Actions
-2. Add each secret and variable
+The MCP server requires these Node.js dependencies:
+- @anthropic/mcp-server
+- @anthropic/sdk
+- @octokit/rest
 
-### 3. Customize the Workflow (Optional)
+These are defined in the `src/package.json` file.
+
+### 4. Customize the Workflow (Optional)
 
 You can modify the example workflow to:
 - Change the trigger branches
 - Add additional CI steps specific to your project
 - Adjust the Node.js versions used
 
-## Example Use Cases
+## How It Works
 
-- Automated code review using AI
-- Integration with custom review systems
-- Collecting PR metrics for dashboards
-- Triggering additional quality checks
+The system consists of two main components:
 
-## Webhook Receiver with n8n
+1. **MCP Server (`src/mcp-server.js`)**: Provides tools for Claude to interact with GitHub
+   - Allows fetching files from the repository
+   - Enables adding comments to PRs
+   - Supports approving PRs or requesting changes
 
-This repository includes an example n8n workflow that can receive and process the PR data. The workflow:
+2. **MCP Client (`src/mcp-client.js`)**: Manages Claude API calls
+   - Configures the Claude session with appropriate tools
+   - Handles authentication and API interactions
+   - Processes responses from Claude
 
-1. Receives PR data via a webhook endpoint
-2. Processes the PR data to create a structured prompt
-3. Uses Claude AI to perform an automated code review
-4. Can approve PRs, request changes, or add comments based on AI review
-
-To use the n8n workflow:
-1. Import the `n8n-workflow.json` file into your n8n instance
-2. Configure the required credentials:
-   - **HTTP Basic Auth**: For webhook authentication (matching WEBHOOK_USERNAME/WEBHOOK_AUTH_TOKEN)
-   - **GitHub API**: For interacting with GitHub repositories
-   - **Anthropic API**: For Claude AI code reviews
-3. Activate the webhook endpoint
-4. Set your `WEBHOOK_URL` in GitHub to the generated n8n webhook URL
-
-### Required n8n Credentials
-
-The n8n workflow requires the following credentials to be configured:
-
-1. **HTTP Basic Auth** (for the Webhook node)
-   - Username: Should match WEBHOOK_USERNAME in GitHub
-   - Password: Should match WEBHOOK_AUTH_TOKEN in GitHub
-
-2. **GitHub API** (for GitHub Tool nodes)
-   - Access Token: A GitHub Personal Access Token with repo permissions
-
-3. **Anthropic API** (for Anthropic Chat Model node)
-   - API Key: Your Anthropic API key for accessing Claude
-
-## Complete Integration Flow
-
-The complete integration between GitHub Actions and n8n works as follows:
-
+The workflow:
 1. A new pull request is created or updated in your GitHub repository
 2. The GitHub Actions workflow is triggered
 3. The workflow runs your CI pipeline (tests, linting, etc.)
-4. The workflow collects PR data and sends it to your n8n webhook
-5. n8n processes the PR data and generates a review prompt
-6. Claude AI reviews the code and provides feedback
-7. n8n sends the feedback back to GitHub as comments or review decisions
+4. The workflow collects PR data and passes it to the MCP system
+5. Claude reviews the code and provides feedback
+6. The MCP system posts the feedback back to GitHub as comments or review decisions
 
-This creates a fully automated code review system that can be customized to your specific needs.
+## MCP Integration
 
-## Webhook Payload Structure
+This project uses Anthropic's Model Control Protocol (MCP) to enable Claude to:
+1. Access file contents from your repository
+2. Post comments directly to GitHub
+3. Make review decisions (approve or request changes)
 
-The GitHub Actions workflow sends a JSON payload to n8n with the following structure:
+The MCP server runs entirely within GitHub Actions, eliminating the need for external services like n8n.
 
-```json
-{
-  "id": "PR ID",
-  "number": "PR Number",
-  "title": "PR Title",
-  "body": "PR Description",
-  "state": "open/closed",
-  "created_at": "Creation timestamp",
-  "updated_at": "Last update timestamp",
-  "repository": {
-    "name": "repo-name",
-    "owner": "owner-name"
-  },
-  "head": {
-    "ref": "source branch",
-    "sha": "head commit SHA"
-  },
-  "base": {
-    "ref": "target branch",
-    "sha": "base commit SHA"
-  },
-  "user": {
-    "login": "username",
-    "id": "user ID"
-  },
-  "changed_files": [
-    {
-      "filename": "path/to/file",
-      "status": "added/modified/removed",
-      "additions": 10,
-      "deletions": 5,
-      "changes": 15,
-      "patch": "diff content"
-    }
-  ],
-  "comments": [
-    {
-      "id": "comment ID",
-      "body": "comment text",
-      "user": "username",
-      "created_at": "timestamp"
-    }
-  ],
-  "review_comments": [
-    {
-      "id": "comment ID",
-      "body": "comment text",
-      "user": "username",
-      "path": "file path",
-      "position": "line position",
-      "created_at": "timestamp"
-    }
-  ]
-}
-```
+## PR Review Process
+
+When a PR is submitted, Claude will:
+1. Review the changed files and their diffs
+2. Consider any existing comments or context
+3. Provide feedback on:
+   - Code quality and best practices
+   - Potential bugs or logic errors
+   - Security considerations
+   - Style and readability
+4. Post comments and/or make review decisions
 
 ## Contributing
 
